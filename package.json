@@ -2,10 +2,10 @@
   "name": "basf-kidslab-dashboard",
   "version": "1.0.0",
   "description": "BASF Kids' Lab Dashboard — Admin Panel with Neon Postgres",
-  "main": "server.js",
+  "main": "api/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node api/index.js",
+    "dev": "node api/index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

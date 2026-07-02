@@ -1,5 +1,6 @@
 /* ============================================================
    BASF Kids' Lab Dashboard — Express API Server
+   Located in api/index.js for Vercel Serverless compatibility
    ============================================================ */
 
 require('dotenv').config();
@@ -7,7 +8,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { pool, initDb } = require('./db');
+const { pool, initDb } = require('../db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,8 +18,8 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Serve static files (HTML, CSS, JS, assets)
-app.use(express.static(path.join(__dirname)));
+// Serve static files from the parent directory when running locally
+app.use(express.static(path.join(__dirname, '..')));
 
 // ============================================================
 //  API ROUTES
@@ -54,7 +55,6 @@ app.get('/api/schools', async (req, res) => {
       ORDER BY s.date DESC, s.created_at DESC
     `);
 
-    // Don't send file data in the list view (too heavy)
     const schools = result.rows.map(row => ({
       id: row.id,
       name: row.name,
@@ -132,14 +132,12 @@ app.post('/api/schools', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Insert school
     const schoolResult = await client.query(
       'INSERT INTO schools (name, date, principal, email) VALUES ($1, $2, $3, $4) RETURNING *',
       [name, date, principal || null, email || null]
     );
     const school = schoolResult.rows[0];
 
-    // Insert batches
     const insertedBatches = [];
     if (batches && Array.isArray(batches)) {
       for (const batch of batches) {
@@ -180,7 +178,7 @@ app.post('/api/schools', async (req, res) => {
   }
 });
 
-// ── DELETE /api/schools/:id — Delete school and all its batches ──
+// ── DELETE /api/schools/:id — Delete school ──
 app.delete('/api/schools/:id', async (req, res) => {
   try {
     const result = await pool.query('DELETE FROM schools WHERE id = $1 RETURNING id', [req.params.id]);
@@ -300,7 +298,7 @@ app.delete('/api/schools/:id/attendance', async (req, res) => {
   }
 });
 
-// ── POST /api/schools/:id/batches — Add a batch to school ──
+// ── POST /api/schools/:id/batches — Add batch ──
 app.post('/api/schools/:id/batches', async (req, res) => {
   try {
     const { name, startTime, endTime } = req.body;
@@ -308,7 +306,6 @@ app.post('/api/schools/:id/batches', async (req, res) => {
       return res.status(400).json({ error: 'Batch name, start time and end time are required' });
     }
 
-    // Verify school exists
     const schoolCheck = await pool.query('SELECT id FROM schools WHERE id = $1', [req.params.id]);
     if (schoolCheck.rows.length === 0) {
       return res.status(404).json({ error: 'School not found' });
@@ -332,7 +329,7 @@ app.post('/api/schools/:id/batches', async (req, res) => {
   }
 });
 
-// ── DELETE /api/batches/:id — Delete a batch ──
+// ── DELETE /api/batches/:id ──
 app.delete('/api/batches/:id', async (req, res) => {
   try {
     const result = await pool.query('DELETE FROM batches WHERE id = $1 RETURNING id', [req.params.id]);
@@ -348,17 +345,15 @@ app.delete('/api/batches/:id', async (req, res) => {
 
 // ── Fallback: serve index.html for SPA ──
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
 // ============================================================
 //  START SERVER OR EXPORT FOR VERCEL
 // ============================================================
 if (process.env.VERCEL) {
-  // On Vercel (serverless environment), initialize database asynchronously on start
   initDb().catch(err => console.error('Database connection failed on serverless startup:', err.message));
 } else {
-  // Running locally, start listen server
   async function startServer() {
     try {
       await initDb();
