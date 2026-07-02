@@ -18,8 +18,10 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Serve static files from the parent directory when running locally
-app.use(express.static(path.join(__dirname, '..')));
+// Serve static files from the parent directory (local dev only)
+if (!process.env.VERCEL) {
+  app.use(express.static(path.join(__dirname, '..')));
+}
 
 // ============================================================
 //  API ROUTES
@@ -343,10 +345,12 @@ app.delete('/api/batches/:id', async (req, res) => {
   }
 });
 
-// ── Fallback: serve index.html for SPA ──
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'index.html'));
-});
+// ── Fallback: serve index.html for SPA (local dev only) ──
+if (!process.env.VERCEL) {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
+  });
+}
 
 // ============================================================
 //  START SERVER OR EXPORT FOR VERCEL
