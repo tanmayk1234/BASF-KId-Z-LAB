@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BASF Kids' Lab Dashboard — Admin panel for managing the Kids' Lab program at Kapse Foundation, Yeola" />
+  <title>BASF Kids' Lab — Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ============================================================
+       SPLASH SCREEN
+       ============================================================ -->
+  <div id="splash-screen">
+    <!-- Chemistry Bubbles (generated via JS) -->
+    
+    <!-- Molecule Decorations -->
+    <div class="molecule-decoration molecule-top-right">
+      <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="100" cy="100" r="8" fill="white"/>
+        <circle cx="40" cy="40" r="6" fill="white"/>
+        <circle cx="160" cy="40" r="6" fill="white"/>
+        <circle cx="40" cy="160" r="6" fill="white"/>
+        <circle cx="160" cy="160" r="6" fill="white"/>
+        <line x1="100" y1="100" x2="40" y2="40" stroke="white" stroke-width="2"/>
+        <line x1="100" y1="100" x2="160" y2="40" stroke="white" stroke-width="2"/>
+        <line x1="100" y1="100" x2="40" y2="160" stroke="white" stroke-width="2"/>
+        <line x1="100" y1="100" x2="160" y2="160" stroke="white" stroke-width="2"/>
+        <circle cx="70" cy="70" r="4" fill="white"/>
+        <circle cx="130" cy="70" r="4" fill="white"/>
+        <circle cx="70" cy="130" r="4" fill="white"/>
+        <circle cx="130" cy="130" r="4" fill="white"/>
+      </svg>
+    </div>
+    <div class="molecule-decoration molecule-bottom-left">
+      <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="100" cy="50" r="7" fill="white"/>
+        <circle cx="50" cy="150" r="7" fill="white"/>
+        <circle cx="150" cy="150" r="7" fill="white"/>
+        <line x1="100" y1="50" x2="50" y2="150" stroke="white" stroke-width="2"/>
+        <line x1="100" y1="50" x2="150" y2="150" stroke="white" stroke-width="2"/>
+        <line x1="50" y1="150" x2="150" y2="150" stroke="white" stroke-width="2"/>
+        <circle cx="75" cy="100" r="4" fill="white"/>
+        <circle cx="125" cy="100" r="4" fill="white"/>
+        <circle cx="100" cy="150" r="4" fill="white"/>
+      </svg>
+    </div>
+
+    <div class="splash-content">
+      <div class="splash-logos">
+        <div class="splash-logo basf-logo" id="splash-basf">
+          <img src="assets/images.png" alt="BASF Logo" />
+        </div>
+        <div class="splash-divider" id="splash-divider"></div>
+        <div class="splash-logo kapse-logo" id="splash-kapse">
+          <img src="assets/kapse-foundation-1.png" alt="Kapse Foundation Logo" />
+        </div>
+        <div class="splash-divider" id="splash-divider2"></div>
+        <div class="splash-logo mvp-logo" id="splash-mvp">
+          <img src="assets/MVP-New-Logo-2024-1-scaled.jpg" alt="MVP Logo" />
+        </div>
+      </div>
+      <div class="splash-title" id="splash-title">
+        <h1>BASF <span>Kids' Lab</span></h1>
+        <p>We Create Chemistry</p>
+      </div>
+      <div class="splash-loading" id="splash-loading">
+        <div class="splash-loading-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       LOGIN SCREEN
+       ============================================================ -->
+  <div id="login-screen">
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <div class="login-logos">
+            <img src="assets/images.png" alt="BASF" />
+            <img src="assets/kapse-foundation-1.png" alt="Kapse Foundation" />
+          </div>
+          <h2>Admin Login</h2>
+          <p>BASF Kids' Lab Dashboard</p>
+        </div>
+
+        <form id="login-form" autocomplete="off">
+          <div id="login-error" class="login-error">
+            <span>⚠️</span>
+            <span>Invalid username or password</span>
+          </div>
+
+          <div class="form-group">
+            <label for="username">Username</label>
+            <div class="input-wrapper">
+              <input type="text" id="username" placeholder="Enter username" required />
+              <span class="input-icon">👤</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="input-wrapper">
+              <input type="password" id="password" placeholder="Enter password" required />
+              <span class="input-icon">🔒</span>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-login" id="btn-login">
+            Sign In
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       DASHBOARD
+       ============================================================ -->
+  <div id="dashboard">
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <img src="assets/images.png" alt="BASF" />
+          <div class="sidebar-brand-text">
+            <h3>BASF Kids' Lab</h3>
+            <span>Kapse Foundation, Yeola</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-nav">
+        <div class="nav-section-title">Main Menu</div>
+        <button class="nav-item active" data-page="overview" id="nav-overview">
+          <span class="nav-icon">📊</span>
+          Dashboard
+        </button>
+        <button class="nav-item" data-page="schools" id="nav-schools">
+          <span class="nav-icon">🏫</span>
+          Schools
+          <span class="nav-badge" id="school-count-badge">0</span>
+        </button>
+
+        <div class="nav-section-title">Quick Actions</div>
+        <button class="nav-item" id="nav-add-school">
+          <span class="nav-icon">➕</span>
+          Add School
+        </button>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="nav-item" id="btn-logout">
+          <span class="nav-icon">🚪</span>
+          Logout
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Header Bar -->
+      <header class="top-header">
+        <div class="header-left">
+          <h1 id="page-title">Dashboard</h1>
+        </div>
+        <div class="header-right">
+          <div class="header-date" id="header-date">
+            📅 <span></span>
+          </div>
+          <div class="admin-badge">
+            🛡️ Admin
+          </div>
+        </div>
+      </header>
+
+      <!-- Page Content -->
+      <div class="page-content" id="page-content">
+        <!-- Content injected by JS -->
+      </div>
+    </main>
+  </div>
+
+  <!-- ============================================================
+       MODALS
+       ============================================================ -->
+
+  <!-- Add School Modal -->
+  <div class="modal-overlay" id="modal-add-school">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>🏫 Add New School</h3>
+        <button class="modal-close" data-modal="modal-add-school">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-add-school">
+          <div class="form-group">
+            <label for="school-name">School Name</label>
+            <input type="text" id="school-name" placeholder="e.g. Janta Vidyalaya Patode" required />
+          </div>
+          <div class="form-group">
+            <label for="school-date">Date of Visit</label>
+            <input type="date" id="school-date" required />
+          </div>
+          <div class="form-group">
+            <label for="school-principal">Principal Name</label>
+            <input type="text" id="school-principal" placeholder="e.g. Pakhale R.S." />
+          </div>
+          <div class="form-group">
+            <label for="school-email">Contact Email</label>
+            <input type="email" id="school-email" placeholder="e.g. principal@school.com" />
+          </div>
+
+          <!-- Inline Batch Section -->
+          <div class="inline-batch-section">
+            <div class="inline-batch-header">
+              <span class="inline-batch-title">📦 Batches</span>
+              <button type="button" class="btn btn-sm btn-primary" id="btn-add-inline-batch">➕ Add Batch</button>
+            </div>
+            <div id="inline-batch-rows">
+              <!-- Dynamic batch rows added via JS -->
+            </div>
+            <div class="inline-batch-empty" id="inline-batch-empty">
+              <span>No batches added yet. Click "Add Batch" to add one.</span>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-modal="modal-add-school">Cancel</button>
+        <button class="btn btn-primary" id="btn-save-school">💾 Save School</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Batch Modal -->
+  <div class="modal-overlay" id="modal-add-batch">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📦 Add New Batch</h3>
+        <button class="modal-close" data-modal="modal-add-batch">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-add-batch">
+          <div class="form-group">
+            <label for="batch-name">Batch Name / Number</label>
+            <input type="text" id="batch-name" placeholder="e.g. Batch 1" required />
+          </div>
+          <div class="form-group">
+            <label for="batch-start">Start Time</label>
+            <input type="time" id="batch-start" required />
+          </div>
+          <div class="form-group">
+            <label for="batch-end">End Time</label>
+            <input type="time" id="batch-end" required />
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-modal="modal-add-batch">Cancel</button>
+        <button class="btn btn-primary" id="btn-save-batch">💾 Save Batch</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div class="modal-overlay" id="modal-confirm-delete">
+    <div class="modal" style="max-width: 400px; text-align: center;">
+      <div class="modal-header" style="justify-content: center; border-bottom: none; padding-bottom: 0;">
+        <h3 style="color: var(--danger);">⚠️ Confirm Delete</h3>
+      </div>
+      <div class="modal-body" style="padding: var(--space-6) var(--space-8);">
+        <p id="delete-confirm-text" style="color: var(--text-secondary); font-size: var(--font-size-sm); line-height: 1.5;">Are you sure you want to delete this school? This will permanently delete all batches and files associated with it.</p>
+      </div>
+      <div class="modal-footer" style="justify-content: center; border-top: none; padding-top: 0; padding-bottom: var(--space-6);">
+        <button class="btn btn-secondary" data-modal="modal-confirm-delete">Cancel</button>
+        <button class="btn btn-danger" id="btn-confirm-delete-action">🗑️ Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

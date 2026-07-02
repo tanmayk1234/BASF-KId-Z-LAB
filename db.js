@@ -1,0 +1,55 @@
+/* ============================================================
+   Database Connection & Schema — Neon Postgres
+   ============================================================ */
+
+const { Pool } = require('pg');
+
+// Create connection pool with SSL (required by Neon)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+/**
+ * Initialize database — create tables if they don't exist
+ */
+async function initDb() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS schools (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        date DATE NOT NULL,
+        principal VARCHAR(255),
+        email VARCHAR(255),
+        present_count INTEGER DEFAULT 0,
+        absent_count INTEGER DEFAULT 0,
+        consent_form TEXT,
+        consent_form_name VARCHAR(255),
+        attendance_sheet TEXT,
+        attendance_sheet_name VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS batches (
+        id SERIAL PRIMARY KEY,
+        school_id INTEGER REFERENCES schools(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL
+      );
+    `);
+
+    console.log('✅ Database tables initialized');
+  } catch (err) {
+    console.error('❌ Database initialization error:', err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { pool, initDb };
