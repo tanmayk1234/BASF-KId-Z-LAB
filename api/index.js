@@ -416,6 +416,25 @@ app.post('/api/schools/:id/batches', async (req, res) => {
   }
 });
 
+// ── PUT /api/batches/:id — Update batch timings ──
+app.put('/api/batches/:id', async (req, res) => {
+  try {
+    const { startTime, endTime } = req.body;
+    if (!startTime || !endTime) {
+      return res.status(400).json({ error: 'Start and end times are required' });
+    }
+    const result = await pool.query(
+      'UPDATE batches SET start_time = $1, end_time = $2 WHERE id = $3 RETURNING *',
+      [startTime, endTime, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Batch not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('PUT /api/batches/:id error:', err.message);
+    res.status(500).json({ error: 'Failed to update batch' });
+  }
+});
+
 // ── DELETE /api/batches/:id ──
 app.delete('/api/batches/:id', async (req, res) => {
   try {
@@ -462,7 +481,7 @@ function calculateDistance(lat1, lon1, lat2 = 20.0422, lon2 = 74.4880) {
 // ── POST /api/transit — Start or update transit tracking ──
 app.post('/api/transit', async (req, res) => {
   try {
-    const { schoolId, tripName, mentorName, status, latitude, longitude } = req.body;
+    const { schoolId, tripName, mentorName, status, latitude, longitude, manualDistance, weather } = req.body;
     
     if (!schoolId || !tripName || !mentorName || !status) {
       return res.status(400).json({ error: 'School ID, trip name, mentor name, and status are required' });
@@ -471,7 +490,10 @@ app.post('/api/transit', async (req, res) => {
     const lat = latitude ? parseFloat(latitude) : null;
     const lon = longitude ? parseFloat(longitude) : null;
     let distance = null;
-    if (lat !== null && lon !== null) {
+    
+    if (manualDistance !== undefined && manualDistance !== null && manualDistance !== '') {
+      distance = parseFloat(manualDistance);
+    } else if (lat !== null && lon !== null) {
       distance = calculateDistance(lat, lon);
     }
     
@@ -485,17 +507,17 @@ app.post('/api/transit', async (req, res) => {
       // Update
       const updateRes = await pool.query(
         `UPDATE transit_logs 
-         SET status = $1, latitude = $2, longitude = $3, distance_km = $4, mentor_name = $5, updated_at = NOW() 
-         WHERE school_id = $6 AND trip_name = $7 RETURNING *`,
-        [status, lat, lon, distance, mentorName, schoolId, tripName]
+         SET status = $1, latitude = $2, longitude = $3, distance_km = $4, mentor_name = $5, weather = COALESCE($6, weather), updated_at = NOW() 
+         WHERE school_id = $7 AND trip_name = $8 RETURNING *`,
+        [status, lat, lon, distance, mentorName, weather || null, schoolId, tripName]
       );
       res.json(updateRes.rows[0]);
     } else {
       // Insert
       const insertRes = await pool.query(
-        `INSERT INTO transit_logs (school_id, trip_name, mentor_name, status, latitude, longitude, distance_km) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [schoolId, tripName, mentorName, status, lat, lon, distance]
+        `INSERT INTO transit_logs (school_id, trip_name, mentor_name, status, latitude, longitude, distance_km, weather) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [schoolId, tripName, mentorName, status, lat, lon, distance, weather || null]
       );
       res.status(201).json(insertRes.rows[0]);
     }
@@ -516,6 +538,74 @@ app.delete('/api/transit/:id', async (req, res) => {
   } catch (err) {
     console.error('DELETE /api/transit/:id error:', err.message);
     res.status(500).json({ error: 'Failed to end transit log' });
+  }
+});
+
+// ── GET /api/batch-tracking — Get all active batch trackings ──
+app.get('/api/batch-tracking', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT bl.id, bl.school_id, bl.batch_id, bl.current_step, bl.step_order, bl.updated_at,
+             s.name as school_name, b.name as batch_name
+      FROM batch_logs bl
+      JOIN schools s ON bl.school_id = s.id
+      JOIN batches b ON bl.batch_id = b.id
+      ORDER BY bl.updated_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/batch-tracking error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch batch trackings' });
+  }
+});
+
+// ── POST /api/batch-tracking — Start or update batch tracking ──
+app.post('/api/batch-tracking', async (req, res) => {
+  try {
+    const { schoolId, batchId, currentStep, stepOrder } = req.body;
+    
+    if (!schoolId || !batchId || !currentStep || !stepOrder) {
+      return res.status(400).json({ error: 'School ID, batch ID, current step, and step order are required' });
+    }
+    
+    const existing = await pool.query(
+      'SELECT id FROM batch_logs WHERE batch_id = $1',
+      [batchId]
+    );
+    
+    if (existing.rows.length > 0) {
+      const updateRes = await pool.query(
+        `UPDATE batch_logs 
+         SET current_step = $1, step_order = $2, updated_at = NOW() 
+         WHERE batch_id = $3 RETURNING *`,
+        [currentStep, stepOrder, batchId]
+      );
+      res.json(updateRes.rows[0]);
+    } else {
+      const insertRes = await pool.query(
+        `INSERT INTO batch_logs (school_id, batch_id, current_step, step_order) 
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [schoolId, batchId, currentStep, stepOrder]
+      );
+      res.status(201).json(insertRes.rows[0]);
+    }
+  } catch (err) {
+    console.error('POST /api/batch-tracking error:', err.message);
+    res.status(500).json({ error: 'Failed to update batch log' });
+  }
+});
+
+// ── DELETE /api/batch-tracking/:id — Complete/Delete batch tracking ──
+app.delete('/api/batch-tracking/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM batch_logs WHERE id = $1 RETURNING id', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Batch log not found' });
+    }
+    res.json({ message: 'Batch tracking completed', id: parseInt(req.params.id) });
+  } catch (err) {
+    console.error('DELETE /api/batch-tracking/:id error:', err.message);
+    res.status(500).json({ error: 'Failed to complete batch log' });
   }
 });
 

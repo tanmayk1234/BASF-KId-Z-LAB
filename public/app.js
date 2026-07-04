@@ -31,6 +31,16 @@
     distance: null
   };
 
+  let mentorBatchState = {
+    active: false,
+    schoolId: null,
+    batchId: null,
+    stepOrder: 'FoodFirst',
+    currentStep: 'Arrival'
+  };
+
+  let currentBatchesData = [];
+
   // ── DOM References ──
   const splashScreen = document.getElementById('splash-screen');
   const loginScreen = document.getElementById('login-screen');
@@ -185,16 +195,22 @@
     ];
 
     if (role === 'mentor') {
-      // Hide admin tabs, show only mentor console
+      // Hide admin tabs, show only mentor consoles
       adminItems.forEach(el => { if (el) el.style.display = 'none'; });
       const mentorBtn = document.getElementById('nav-mentor-console');
       if (mentorBtn) mentorBtn.style.display = 'flex';
+      const batchBtn = document.getElementById('nav-batch-console');
+      if (batchBtn) batchBtn.style.display = 'flex';
+      
       navigateTo('mentor-console');
     } else {
-      // Show all tabs
+      // Admin: show everything
       adminItems.forEach(el => { if (el) el.style.display = 'flex'; });
       const mentorBtn = document.getElementById('nav-mentor-console');
       if (mentorBtn) mentorBtn.style.display = 'flex';
+      const batchBtn = document.getElementById('nav-batch-console');
+      if (batchBtn) batchBtn.style.display = 'flex';
+      
       navigateTo('overview');
     }
   }
@@ -221,7 +237,8 @@
       schools: 'Schools',
       'school-detail': 'School Details',
       tracking: 'Live Transit Tracking',
-      'mentor-console': 'Bus Transit Tracker'
+      'mentor-console': 'Bus Transit Tracker',
+      'batch-console': 'Batch Tracking Console'
     };
     pageTitle.textContent = titles[page] || 'Dashboard';
 
@@ -240,6 +257,9 @@
         break;
       case 'mentor-console':
         renderMentorDashboard();
+        break;
+      case 'batch-console':
+        renderBatchDashboard();
         break;
     }
   }
@@ -1014,7 +1034,9 @@
           mentorName: mentorTrackingState.mentorName,
           status: mentorTrackingState.status,
           latitude: mentorTrackingState.lat,
-          longitude: mentorTrackingState.lon
+          longitude: mentorTrackingState.lon,
+          manualDistance: mentorTrackingState.manualDistance,
+          weather: mentorTrackingState.weather
         }
       });
 
@@ -1071,6 +1093,23 @@
                 <input type="text" id="mentor-input-name" class="mentor-input" placeholder="Enter mentor name" required />
               </div>
 
+              <div class="mentor-form-group">
+                <label for="mentor-input-distance">Distance to School (KM)</label>
+                <input type="number" id="mentor-input-distance" class="mentor-input" placeholder="e.g. 15" step="0.1" required />
+              </div>
+
+              <div class="mentor-form-group">
+                <label for="mentor-select-weather">Weather</label>
+                <select id="mentor-select-weather" class="mentor-select" required>
+                  <option value="" disabled selected>-- Choose Weather --</option>
+                  <option value="Sunny">☀️ Sunny / Clear</option>
+                  <option value="Cloudy">☁️ Cloudy / Overcast</option>
+                  <option value="Light Rain">🌦️ Light Rain / Drizzle</option>
+                  <option value="Heavy Rain">🌧️ Heavy Rain</option>
+                  <option value="Thunderstorm">⛈️ Thunderstorm</option>
+                </select>
+              </div>
+
               <button type="submit" class="btn btn-primary" style="width: 100%; padding: var(--space-4); margin-top: var(--space-4);" id="btn-start-tracking-submit">
                 🚀 Start Live Location Tracking
               </button>
@@ -1111,8 +1150,12 @@
                   <span class="location-info-value" id="mentor-live-coordinates"><span id="mentor-live-lat">--</span>, <span id="mentor-live-lon">--</span></span>
                 </div>
                 <div class="location-info-item">
-                  <span class="location-info-label">📏 Distance to Lab</span>
+                  <span class="location-info-label">📏 Distance</span>
                   <span class="location-info-value" style="color: var(--basf-blue);" id="mentor-live-distance">-- km</span>
+                </div>
+                <div class="location-info-item" style="grid-column: 1 / -1;">
+                  <span class="location-info-label">⛅ Weather</span>
+                  <span class="location-info-value" id="mentor-live-weather">--</span>
                 </div>
                 <div class="location-info-item">
                   <span class="location-info-label">🎯 GPS Accuracy</span>
@@ -1134,16 +1177,24 @@
 
       document.getElementById('mentor-tracking-form').addEventListener('submit', (e) => {
         e.preventDefault();
+        mentorTrackingState.active = true;
         mentorTrackingState.schoolId = parseInt(document.getElementById('mentor-select-school').value);
         mentorTrackingState.tripName = document.getElementById('mentor-select-trip').value;
         mentorTrackingState.mentorName = document.getElementById('mentor-input-name').value.trim();
+        mentorTrackingState.manualDistance = document.getElementById('mentor-input-distance').value;
+        mentorTrackingState.weather = document.getElementById('mentor-select-weather').value;
         mentorTrackingState.status = 'Departed';
 
         document.getElementById('mentor-select-school').disabled = true;
         document.getElementById('mentor-select-trip').disabled = true;
         document.getElementById('mentor-input-name').disabled = true;
+        document.getElementById('mentor-input-distance').disabled = true;
+        document.getElementById('mentor-select-weather').disabled = true;
         document.getElementById('btn-start-tracking-submit').style.display = 'none';
 
+        document.getElementById('mentor-live-distance').textContent = mentorTrackingState.manualDistance + ' km';
+        document.getElementById('mentor-live-weather').textContent = mentorTrackingState.weather;
+        
         document.getElementById('mentor-active-tracking-panel').style.display = 'block';
 
         startMentorTracking();
@@ -1174,7 +1225,7 @@
               geolocationWatchId = null;
             }
 
-            mentorTrackingState = { active: false, schoolId: null, tripName: '', mentorName: '', status: 'Departed', lat: null, lon: null, distance: null };
+            mentorTrackingState = { active: false, schoolId: null, tripName: '', mentorName: '', status: 'Departed', lat: null, lon: null, manualDistance: null, weather: null };
             showToast('Transit completed successfully! Thank you.', 'success');
             renderMentorDashboard();
           } catch (err) {
@@ -1184,6 +1235,302 @@
           }
         }
       });
+      
+      // Restore state if tracking is active
+      if (mentorTrackingState.active) {
+        document.getElementById('mentor-select-school').value = mentorTrackingState.schoolId;
+        document.getElementById('mentor-select-trip').value = mentorTrackingState.tripName;
+        document.getElementById('mentor-input-name').value = mentorTrackingState.mentorName;
+        document.getElementById('mentor-input-distance').value = mentorTrackingState.manualDistance;
+        document.getElementById('mentor-select-weather').value = mentorTrackingState.weather;
+
+        document.getElementById('mentor-select-school').disabled = true;
+        document.getElementById('mentor-select-trip').disabled = true;
+        document.getElementById('mentor-input-name').disabled = true;
+        document.getElementById('mentor-input-distance').disabled = true;
+        document.getElementById('mentor-select-weather').disabled = true;
+        document.getElementById('btn-start-tracking-submit').style.display = 'none';
+
+        document.getElementById('mentor-live-distance').textContent = mentorTrackingState.manualDistance + ' km';
+        document.getElementById('mentor-live-weather').textContent = mentorTrackingState.weather;
+        if (mentorTrackingState.lat) document.getElementById('mentor-live-lat').textContent = mentorTrackingState.lat.toFixed(6);
+        if (mentorTrackingState.lon) document.getElementById('mentor-live-lon').textContent = mentorTrackingState.lon.toFixed(6);
+
+        document.querySelectorAll('.status-option-btn').forEach(b => {
+          b.classList.remove('active');
+          if (b.dataset.status === mentorTrackingState.status) {
+            b.classList.add('active');
+          }
+        });
+
+        document.getElementById('mentor-active-tracking-panel').style.display = 'block';
+      }
+
+    } catch (err) {
+      pageContent.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Error loading dashboard</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  async function sendBatchUpdate() {
+    try {
+      const res = await api('/batch-tracking', {
+        method: 'POST',
+        body: {
+          schoolId: mentorBatchState.schoolId,
+          batchId: mentorBatchState.batchId,
+          stepOrder: mentorBatchState.stepOrder,
+          currentStep: mentorBatchState.currentStep
+        }
+      });
+      mentorBatchState.logId = res.id;
+    } catch (err) {
+      console.error('Failed to send batch status update:', err.message);
+    }
+  }
+
+  async function renderBatchDashboard() {
+    pageTitle.textContent = 'Batch Tracking Console';
+    pageContent.innerHTML = '<div class="empty-state"><div class="loading-spinner" style="border-color: var(--border); border-top-color: var(--basf-blue); width: 40px; height: 40px; margin: 0 auto;"></div><p style="margin-top: 1rem;">Loading schools list...</p></div>';
+
+    try {
+      const schools = await api('/schools');
+
+      pageContent.innerHTML = `
+        <div class="mentor-dashboard">
+          <div class="mentor-card">
+            <div class="mentor-header-title">🔬 Batch Progress Tracker</div>
+            <p class="mentor-header-desc">Start tracking the batch lifecycle in the lab. The progress will be updated live for the admin.</p>
+
+            <form id="batch-tracking-form">
+              <div class="mentor-form-group">
+                <label for="batch-select-school">Select School</label>
+                <select id="batch-select-school" class="mentor-select" required>
+                  <option value="" disabled selected>-- Choose School --</option>
+                  ${schools.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+                </select>
+              </div>
+
+              <div class="mentor-form-group">
+                <label for="batch-select-batch">Select Batch</label>
+                <select id="batch-select-batch" class="mentor-select" required disabled>
+                  <option value="" disabled selected>-- Choose Batch --</option>
+                </select>
+              </div>
+
+              <div class="mentor-form-group">
+                <label for="batch-select-order">Step Flow Order</label>
+                <select id="batch-select-order" class="mentor-select" required>
+                  <option value="FoodFirst">Flow A: Food -> Lab Experiments -> Certification</option>
+                  <option value="LabFirst">Flow B: Lab Experiments -> Certification -> Food</option>
+                </select>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%; padding: var(--space-4); margin-top: var(--space-4);" id="btn-start-batch-submit">
+                🚀 Start Live Batch Tracking
+              </button>
+            </form>
+
+            <div id="batch-active-tracking-panel" style="display: none; margin-top: var(--space-6);">
+              <hr style="border: 0; border-top: 1px solid var(--border); margin: var(--space-6) 0;" />
+              <div class="mentor-header-title" style="color: var(--success);"><span class="live-dot"></span> Batch In Progress</div>
+              <p class="mentor-header-desc">Tap the current step as the batch progresses through the lab:</p>
+              
+              <div class="status-options-grid" id="batch-steps-grid" style="grid-template-columns: 1fr;">
+                <!-- Steps injected here dynamically based on order -->
+              </div>
+              
+              <button class="btn btn-danger" style="width: 100%; padding: var(--space-4); margin-top: var(--space-6);" id="btn-complete-batch">
+                🏁 Complete Batch
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const schoolSelect = document.getElementById('batch-select-school');
+      const batchSelect = document.getElementById('batch-select-batch');
+      
+      schoolSelect.addEventListener('change', async () => {
+        batchSelect.innerHTML = '<option value="" disabled selected>Loading batches...</option>';
+        try {
+          const schoolData = await api('/schools/' + schoolSelect.value);
+          currentBatchesData = schoolData.batches || [];
+          if (currentBatchesData.length === 0) {
+            batchSelect.innerHTML = '<option value="" disabled selected>No batches found</option>';
+            batchSelect.disabled = true;
+          } else {
+            batchSelect.innerHTML = '<option value="" disabled selected>-- Choose Batch --</option>' + 
+              currentBatchesData.map(b => `<option value="${b.id}">${escapeHtml(b.name)} (${formatTime(b.startTime)} - ${formatTime(b.endTime)})</option>`).join('');
+            batchSelect.disabled = false;
+          }
+        } catch(err) {
+          batchSelect.innerHTML = '<option value="" disabled selected>Failed to load</option>';
+        }
+      });
+
+      function renderBatchSteps() {
+        const grid = document.getElementById('batch-steps-grid');
+        const order = mentorBatchState.stepOrder;
+        
+        let steps = [];
+        if (order === 'FoodFirst') {
+          steps = ['Arrival', 'Registration', 'Food', 'Lab Experiments', 'Certification', 'Leave'];
+        } else {
+          steps = ['Arrival', 'Registration', 'Lab Experiments', 'Certification', 'Food', 'Leave'];
+        }
+
+        grid.innerHTML = steps.map((step, index) => {
+          const isActive = mentorBatchState.currentStep === step;
+          const icon = step === 'Arrival' ? '🚪' : 
+                       step === 'Registration' ? '📝' : 
+                       step === 'Food' ? '🍽️' : 
+                       step === 'Lab Experiments' ? '🧪' : 
+                       step === 'Certification' ? '🎓' : '👋';
+                       
+          return `
+            <button type="button" class="status-option-btn batch-step-btn ${isActive ? 'active' : ''}" data-step="${step}" style="margin-bottom: var(--space-3); flex-direction: row; justify-content: flex-start; text-align: left; padding: var(--space-3) var(--space-4);">
+              <span class="status-option-icon" style="margin-bottom: 0; margin-right: var(--space-3); font-size: 1.5rem;">${icon}</span>
+              <div>
+                <div style="font-weight: 600;">${step}</div>
+              </div>
+            </button>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.batch-step-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            document.querySelectorAll('.batch-step-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            mentorBatchState.currentStep = btn.dataset.step;
+
+            showLoading();
+            await sendBatchUpdate();
+            hideLoading();
+            showToast(`Batch moved to: ${btn.dataset.step}`, 'success');
+          });
+        });
+      }
+
+      document.getElementById('batch-tracking-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const selectedBatchId = parseInt(document.getElementById('batch-select-batch').value);
+        const batch = currentBatchesData.find(b => b.id === selectedBatchId);
+        if (!batch) return;
+
+        // Show the confirm timing modal
+        document.getElementById('confirm-batch-time-display').textContent = `${formatTime(batch.startTime)} to ${formatTime(batch.endTime)}`;
+        
+        // Reset modal state
+        document.getElementById('form-edit-batch-timing').style.display = 'none';
+        document.getElementById('batch-timing-footer-default').style.display = 'flex';
+        document.getElementById('batch-timing-footer-edit').style.display = 'none';
+        document.getElementById('edit-batch-start').value = batch.startTime;
+        document.getElementById('edit-batch-end').value = batch.endTime;
+
+        openModal('modal-confirm-batch-timing');
+        
+        // Handle "Keep & Proceed"
+        document.getElementById('btn-keep-batch-timing').onclick = async () => {
+          closeModal('modal-confirm-batch-timing');
+          await activateBatchTracking(batch.id);
+        };
+        
+        // Handle "Edit Timing"
+        document.getElementById('btn-change-batch-timing').onclick = () => {
+          document.getElementById('form-edit-batch-timing').style.display = 'block';
+          document.getElementById('batch-timing-footer-default').style.display = 'none';
+          document.getElementById('batch-timing-footer-edit').style.display = 'flex';
+        };
+
+        // Handle "Save & Proceed"
+        document.getElementById('btn-save-batch-timing').onclick = async () => {
+          const newStart = document.getElementById('edit-batch-start').value;
+          const newEnd = document.getElementById('edit-batch-end').value;
+          
+          if (!newStart || !newEnd) {
+            showToast('Please provide both start and end times', 'error');
+            return;
+          }
+          
+          showLoading();
+          try {
+            await api('/batches/' + batch.id, {
+              method: 'PUT',
+              body: { startTime: newStart, endTime: newEnd }
+            });
+            closeModal('modal-confirm-batch-timing');
+            await activateBatchTracking(batch.id);
+          } catch(err) {
+            showToast('Failed to update batch timings', 'error');
+          } finally {
+            hideLoading();
+          }
+        };
+      });
+
+      async function activateBatchTracking(batchId) {
+        mentorBatchState.active = true;
+        mentorBatchState.schoolId = parseInt(document.getElementById('batch-select-school').value);
+        mentorBatchState.batchId = batchId;
+        mentorBatchState.stepOrder = document.getElementById('batch-select-order').value;
+        mentorBatchState.currentStep = 'Arrival';
+
+        document.getElementById('batch-select-school').disabled = true;
+        document.getElementById('batch-select-batch').disabled = true;
+        document.getElementById('batch-select-order').disabled = true;
+        document.getElementById('btn-start-batch-submit').style.display = 'none';
+
+        renderBatchSteps();
+        document.getElementById('batch-active-tracking-panel').style.display = 'block';
+
+        showLoading();
+        await sendBatchUpdate();
+        hideLoading();
+      }
+
+      document.getElementById('btn-complete-batch').addEventListener('click', async () => {
+        if (confirm('Are you sure you want to end tracking for this batch?')) {
+          showLoading();
+          try {
+            if (mentorBatchState.logId) {
+              await api('/batch-tracking/' + mentorBatchState.logId, { method: 'DELETE' });
+            }
+            mentorBatchState = { active: false, schoolId: null, batchId: null, stepOrder: 'FoodFirst', currentStep: 'Arrival', logId: null };
+            showToast('Batch completed successfully! Thank you.', 'success');
+            renderBatchDashboard();
+          } catch (err) {
+            showToast('Error completing batch', 'error');
+          } finally {
+            hideLoading();
+          }
+        }
+      });
+      
+      if (mentorBatchState.active) {
+        const schoolSelect = document.getElementById('batch-select-school');
+        schoolSelect.value = mentorBatchState.schoolId;
+        
+        try {
+          const schoolData = await api('/schools/' + mentorBatchState.schoolId);
+          const batches = schoolData.batches || [];
+          const batchSelect = document.getElementById('batch-select-batch');
+          batchSelect.innerHTML = batches.map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+          batchSelect.value = mentorBatchState.batchId;
+          
+          document.getElementById('batch-select-order').value = mentorBatchState.stepOrder;
+
+          document.getElementById('batch-select-school').disabled = true;
+          document.getElementById('batch-select-batch').disabled = true;
+          document.getElementById('batch-select-order').disabled = true;
+          document.getElementById('btn-start-batch-submit').style.display = 'none';
+          
+          renderBatchSteps();
+          document.getElementById('batch-active-tracking-panel').style.display = 'block';
+        } catch (e) {
+          console.error(e);
+        }
+      }
 
     } catch (err) {
       pageContent.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Error loading dashboard</h3><p>${err.message}</p></div>`;
@@ -1198,32 +1545,35 @@
     let isDeleting = false;
 
     async function fetchAndRender() {
-      // Don't refresh while a delete is in progress
       if (isDeleting) return;
 
       try {
-        const logs = await api('/transit/active');
+        const [logs, batches] = await Promise.all([
+          api('/transit/active'),
+          api('/batch-tracking')
+        ]);
         const activeLogs = logs.filter(l => l.status !== 'Completed');
 
-        if (activeLogs.length === 0) {
-          pageContent.innerHTML = `
-            <div class="section-header">
-              <h2>Live Transit Tracking</h2>
-              <button class="btn btn-secondary btn-sm" id="btn-refresh-tracking">🔄 Refresh</button>
-            </div>
+        let html = `
+          <div class="section-header">
+            <h2>Live Tracking Dashboard</h2>
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-tracking">🔄 Refresh</button>
+          </div>
+        `;
+
+        if (activeLogs.length === 0 && batches.length === 0) {
+          html += `
             <div class="empty-state">
-              <div class="empty-icon" style="animation: none;">🚌</div>
-              <h3>No Buses in Transit</h3>
-              <p>Active tracking updates from mentors will appear here in real time.</p>
+              <div class="empty-icon" style="animation: none;">🗺️</div>
+              <h3>No Active Trackings</h3>
+              <p>Active bus transits and batch progress updates will appear here in real time.</p>
             </div>
           `;
         } else {
-          pageContent.innerHTML = `
-            <div class="section-header">
-              <h2>Live Transit Tracking (${activeLogs.length} active)</h2>
-              <button class="btn btn-secondary btn-sm" id="btn-refresh-tracking">🔄 Refresh</button>
-            </div>
-            <div class="tracking-list-grid">
+          // Bus Tracking Section
+          if (activeLogs.length > 0) {
+            html += `<h3 style="margin-top: 0; margin-bottom: var(--space-4);">🚌 Bus Transits (${activeLogs.length})</h3>
+            <div class="tracking-list-grid" style="margin-bottom: var(--space-8);">
               ${activeLogs.map(log => {
                 let statusClass = 'departed';
                 if (log.status === 'Arrived at School') statusClass = 'arrived_school';
@@ -1274,50 +1624,62 @@
                   </div>
                 `;
               }).join('')}
-            </div>
-          `;
+            </div>`;
+          }
+
+          // Batch Tracking Section
+          if (batches.length > 0) {
+            html += `<h3 style="margin-top: 0; margin-bottom: var(--space-4);">🔬 Batch Progress (${batches.length})</h3>
+            <div class="tracking-list-grid">
+              ${batches.map(batch => {
+                let steps = [];
+                if (batch.step_order === 'FoodFirst') {
+                  steps = ['Arrival', 'Registration', 'Food', 'Lab Experiments', 'Certification', 'Leave'];
+                } else {
+                  steps = ['Arrival', 'Registration', 'Lab Experiments', 'Certification', 'Food', 'Leave'];
+                }
+                const curIndex = steps.indexOf(batch.current_step);
+                const progressPct = ((curIndex + 1) / steps.length) * 100;
+                
+                return `
+                  <div class="tracking-card">
+                    <div class="tracking-card-header">
+                      <span class="tracking-card-title">${escapeHtml(batch.school_name)}</span>
+                      <span class="live-badge"><span class="live-dot"></span> Live</span>
+                    </div>
+                    <div class="tracking-card-body">
+                      <div class="tracking-info-row">
+                        <span class="tracking-info-label">Batch</span>
+                        <span class="tracking-info-value">${escapeHtml(batch.batch_name)}</span>
+                      </div>
+                      <div class="tracking-info-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <span class="tracking-info-label">Current Step: <strong style="color: var(--text);">${escapeHtml(batch.current_step)}</strong></span>
+                        <div style="width: 100%; height: 8px; background: var(--bg-alt); border-radius: 4px; overflow: hidden; position: relative;">
+                          <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${progressPct}%; background: var(--success); transition: width 0.3s ease;"></div>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); align-self: flex-end;">Step ${curIndex + 1} of ${steps.length}</div>
+                      </div>
+                      <div class="tracking-info-row">
+                        <span class="tracking-info-label">Last Updated</span>
+                        <span class="tracking-info-value">${new Date(batch.updated_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                      </div>
+                    </div>
+                    <div class="tracking-card-footer">
+                      <button class="btn btn-danger btn-sm end-admin-batch-tracking-btn" data-batch-log-id="${batch.id}">
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>`;
+          }
         }
+        pageContent.innerHTML = html;
       } catch (err) {
         pageContent.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Failed to load tracking updates</h3><p>${err.message}</p></div>`;
       }
     }
-
-    // Use event delegation on pageContent so buttons always work even after DOM re-render
-    pageContent.addEventListener('click', async (e) => {
-      // Handle "Delete" button
-      const deleteBtn = e.target.closest('.end-admin-tracking-btn');
-      if (deleteBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const logId = deleteBtn.dataset.logId;
-        if (!logId) return;
-
-        if (confirm('Are you sure you want to delete this tracking session?')) {
-          isDeleting = true;
-          showLoading();
-          try {
-            await api('/transit/' + logId, { method: 'DELETE' });
-            showToast('Tracking session deleted successfully', 'success');
-            isDeleting = false;
-            await fetchAndRender();
-          } catch (err) {
-            showToast('Failed to delete tracking: ' + err.message, 'error');
-            isDeleting = false;
-          } finally {
-            hideLoading();
-          }
-        }
-        return;
-      }
-
-      // Handle "Refresh" button
-      const refreshBtn = e.target.closest('#btn-refresh-tracking');
-      if (refreshBtn) {
-        e.preventDefault();
-        await fetchAndRender();
-        return;
-      }
-    });
 
     await fetchAndRender();
     trackingIntervalId = setInterval(fetchAndRender, 10000);
@@ -1366,6 +1728,15 @@
 
     document.getElementById('nav-add-school').addEventListener('click', () => openModal('modal-add-school'));
     document.getElementById('btn-logout').addEventListener('click', logout);
+
+    // Global Sync Button
+    const btnGlobalSync = document.getElementById('btn-global-sync');
+    if (btnGlobalSync) {
+      btnGlobalSync.addEventListener('click', () => {
+        showToast('Syncing data...', 'info');
+        navigateTo(currentPage, currentSchoolId);
+      });
+    }
 
     // Modal close buttons
     document.querySelectorAll('[data-modal]').forEach((btn) => {
@@ -1425,12 +1796,69 @@
         await api('/schools/' + currentSchoolId + '/batches', {
           method: 'POST',
           body: { name, startTime, endTime },
-        });
+    });
         closeModal('modal-add-batch');
         showToast(`${name} added! 📦`, 'success');
         renderSchoolDetail(currentSchoolId, 'batches');
       } catch (err) {
         showToast('Failed to add batch', 'error');
+      }
+    });
+
+    // ── Live Tracking Dashboard Event Delegation ──
+    pageContent.addEventListener('click', async (e) => {
+      // Handle "Refresh" button
+      const refreshBtn = e.target.closest('#btn-refresh-tracking');
+      if (refreshBtn) {
+        e.preventDefault();
+        renderTracking();
+        return;
+      }
+
+      // Handle "Delete Transit" button
+      const deleteBtn = e.target.closest('.end-admin-tracking-btn');
+      if (deleteBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const logId = deleteBtn.dataset.logId;
+        if (!logId) return;
+
+        if (confirm('Are you sure you want to delete this transit tracking session?')) {
+          showLoading();
+          try {
+            await api('/transit/' + logId, { method: 'DELETE' });
+            showToast('Tracking session deleted successfully', 'success');
+            renderTracking();
+          } catch (err) {
+            showToast('Failed to delete tracking: ' + err.message, 'error');
+          } finally {
+            hideLoading();
+          }
+        }
+        return;
+      }
+
+      // Handle "Delete Batch" button
+      const deleteBatchBtn = e.target.closest('.end-admin-batch-tracking-btn');
+      if (deleteBatchBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const batchLogId = deleteBatchBtn.dataset.batchLogId;
+        if (!batchLogId) return;
+
+        if (confirm('Are you sure you want to delete this batch progress session?')) {
+          showLoading();
+          try {
+            await api('/batch-tracking/' + batchLogId, { method: 'DELETE' });
+            showToast('Batch progress deleted successfully', 'success');
+            renderTracking();
+          } catch (err) {
+            showToast('Failed to delete batch progress: ' + err.message, 'error');
+          } finally {
+            hideLoading();
+          }
+        }
+        return;
       }
     });
   }

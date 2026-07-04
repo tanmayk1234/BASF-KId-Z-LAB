@@ -59,6 +59,21 @@ async function initDb() {
       );
     `);
 
+    await client.query(`
+      ALTER TABLE transit_logs ADD COLUMN IF NOT EXISTS weather VARCHAR(50);
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS batch_logs (
+        id SERIAL PRIMARY KEY,
+        school_id INTEGER REFERENCES schools(id) ON DELETE CASCADE,
+        batch_id INTEGER REFERENCES batches(id) ON DELETE CASCADE,
+        current_step VARCHAR(50) NOT NULL,
+        step_order VARCHAR(50) NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     console.log('✅ Database tables initialized');
   } catch (err) {
     console.error('❌ Database initialization error:', err.message);

@@ -117,6 +117,10 @@
           <span class="nav-icon">🚌</span>
           Bus Tracker
         </button>
+        <button class="nav-item" data-page="batch-console" id="nav-batch-console">
+          <span class="nav-icon">🔬</span>
+          Batch Tracker
+        </button>
 
         <div class="nav-section-title" id="nav-section-actions">Quick Actions</div>
         <button class="nav-item" id="nav-add-school">
@@ -139,16 +143,19 @@
       <header class="top-header">
         <div class="header-left">
           <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open Menu">
-            ☰
+            🍔
           </button>
           <h1 id="page-title">Dashboard</h1>
         </div>
         <div class="header-right">
+          <button id="btn-global-sync" class="btn btn-sm btn-secondary" style="margin-right: var(--space-4); background: var(--bg-alt); color: var(--text);">
+            🔄 Sync
+          </button>
           <div class="header-date" id="header-date">
             📅 <span></span>
           </div>
           <div class="admin-badge" id="user-role-badge">
-            🛡️ Admin
+            👨‍💼 Admin
           </div>
         </div>
       </header>
@@ -258,9 +265,45 @@
     </div>
   </div>
 
+  <!-- Confirm Batch Timing Modal -->
+  <div class="modal-overlay" id="modal-confirm-batch-timing">
+    <div class="modal" style="max-width: 400px; text-align: center;">
+      <div class="modal-header" style="justify-content: center; border-bottom: none; padding-bottom: 0;">
+        <h3 style="color: var(--basf-blue);">⏱️ Confirm Batch Timing</h3>
+      </div>
+      <div class="modal-body" style="padding: var(--space-6) var(--space-8);">
+        <p style="color: var(--text-secondary); font-size: var(--font-size-sm); line-height: 1.5; margin-bottom: var(--space-4);">
+          The scheduled time for this batch is <strong id="confirm-batch-time-display" style="color: var(--text);"></strong>.<br/>
+          Do you want to keep this time, or change it?
+        </p>
+        
+        <form id="form-edit-batch-timing" style="display: none; text-align: left; margin-top: var(--space-4); background: var(--bg-alt); padding: var(--space-4); border-radius: var(--radius-md);">
+          <div class="form-group">
+            <label for="edit-batch-start">New Start Time</label>
+            <input type="time" id="edit-batch-start" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-batch-end">New End Time</label>
+            <input type="time" id="edit-batch-end" required />
+          </div>
+        </form>
+      </div>
+      
+      <div class="modal-footer" id="batch-timing-footer-default" style="justify-content: center; border-top: none; padding-top: 0; padding-bottom: var(--space-6);">
+        <button class="btn btn-secondary" id="btn-change-batch-timing">Edit Timing</button>
+        <button class="btn btn-primary" id="btn-keep-batch-timing">Keep & Proceed</button>
+      </div>
+      
+      <div class="modal-footer" id="batch-timing-footer-edit" style="display: none; justify-content: center; border-top: none; padding-top: 0; padding-bottom: var(--space-6);">
+        <button class="btn btn-secondary" data-modal="modal-confirm-batch-timing">Cancel</button>
+        <button class="btn btn-primary" id="btn-save-batch-timing">Save & Proceed</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>
