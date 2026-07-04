@@ -13,6 +13,68 @@ const { pool, initDb } = require('../db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ── File Array Helpers ──
+async function appendFilesToDb(table, column, reqBody, id) {
+  const { files, fileData, fileName } = reqBody;
+  let incomingFiles = [];
+  if (files && Array.isArray(files)) incomingFiles = files;
+  else if (fileData) incomingFiles = [{ data: fileData, name: fileName }];
+  
+  if (incomingFiles.length === 0) return null;
+  
+  const current = await pool.query(`SELECT ${column} FROM ${table} WHERE id = $1`, [id]);
+  if (current.rows.length === 0) return { error: 'Not found' };
+  
+  let currentFiles = [];
+  const existingStr = current.rows[0][column];
+  if (existingStr) {
+    if (existingStr.startsWith('[')) {
+      try { currentFiles = JSON.parse(existingStr); } catch (e) {}
+    } else {
+      currentFiles = [{ data: existingStr, name: 'uploaded_file' }];
+    }
+  }
+  
+  incomingFiles.forEach(f => currentFiles.push({ data: f.data || f.fileData, name: f.name || f.fileName }));
+  const newStr = JSON.stringify(currentFiles);
+  await pool.query(`UPDATE ${table} SET ${column} = $1, ${column}_name = NULL WHERE id = $2`, [newStr, id]);
+  return true;
+}
+
+async function removeFileFromDb(table, column, fileIndexStr, id) {
+  const current = await pool.query(`SELECT ${column} FROM ${table} WHERE id = $1`, [id]);
+  if (current.rows.length === 0) return { error: 'Not found' };
+  
+  const existingStr = current.rows[0][column];
+  if (!existingStr) return true;
+  
+  let currentFiles = [];
+  if (existingStr.startsWith('[')) {
+    try { currentFiles = JSON.parse(existingStr); } catch (e) {}
+  } else {
+    currentFiles = [{ data: existingStr, name: 'uploaded_file' }];
+  }
+  
+  if (fileIndexStr !== undefined && fileIndexStr !== null) {
+    const idx = parseInt(fileIndexStr);
+    if (idx >= 0 && idx < currentFiles.length) currentFiles.splice(idx, 1);
+  } else {
+    currentFiles = [];
+  }
+  
+  const newStr = currentFiles.length > 0 ? JSON.stringify(currentFiles) : null;
+  await pool.query(`UPDATE ${table} SET ${column} = $1, ${column}_name = NULL WHERE id = $2`, [newStr, id]);
+  return true;
+}
+
+function parseFileColumn(val) {
+  if (!val) return null;
+  if (val.startsWith('[')) {
+    try { return JSON.parse(val); } catch(e) { return null; }
+  }
+  return [{ data: val, name: 'uploaded_file' }];
+}
+
 // ── Middleware ──
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -33,13 +95,11 @@ app.get('/api/stats', async (req, res) => {
     const schoolCount = await pool.query('SELECT COUNT(*) FROM schools');
     const batchCount = await pool.query('SELECT COUNT(*) FROM batches');
     const presentSum = await pool.query('SELECT COALESCE(SUM(present_count), 0) as total FROM schools');
-    const absentSum = await pool.query('SELECT COALESCE(SUM(absent_count), 0) as total FROM schools');
 
     res.json({
       totalSchools: parseInt(schoolCount.rows[0].count),
       totalBatches: parseInt(batchCount.rows[0].count),
       totalPresent: parseInt(presentSum.rows[0].total),
-      totalAbsent: parseInt(absentSum.rows[0].total),
     });
   } catch (err) {
     console.error('GET /api/stats error:', err.message);
@@ -70,6 +130,8 @@ app.get('/api/schools', async (req, res) => {
       consentFormName: row.consent_form_name,
       hasAttendanceSheet: !!row.attendance_sheet,
       attendanceSheetName: row.attendance_sheet_name,
+      hasGroupPhoto: !!row.group_photo,
+      groupPhotoName: row.group_photo_name,
       createdAt: row.created_at,
     }));
 
@@ -102,10 +164,9 @@ app.get('/api/schools/:id', async (req, res) => {
       email: row.email,
       presentCount: row.present_count,
       absentCount: row.absent_count,
-      consentForm: row.consent_form,
-      consentFormName: row.consent_form_name,
-      attendanceSheet: row.attendance_sheet,
-      attendanceSheetName: row.attendance_sheet_name,
+      consentForm: parseFileColumn(row.consent_form),
+      attendanceSheet: parseFileColumn(row.attendance_sheet),
+      groupPhoto: parseFileColumn(row.group_photo),
       createdAt: row.created_at,
       batches: batchResult.rows.map(b => ({
         id: b.id,
@@ -217,21 +278,10 @@ app.put('/api/schools/:id/counts', async (req, res) => {
 // ── PUT /api/schools/:id/consent — Upload consent form ──
 app.put('/api/schools/:id/consent', async (req, res) => {
   try {
-    const { fileData, fileName } = req.body;
-    if (!fileData) {
-      return res.status(400).json({ error: 'File data is required' });
-    }
-
-    const result = await pool.query(
-      'UPDATE schools SET consent_form = $1, consent_form_name = $2 WHERE id = $3 RETURNING id',
-      [fileData, fileName, req.params.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'School not found' });
-    }
-
-    res.json({ message: 'Consent form uploaded', fileName });
+    const success = await appendFilesToDb('schools', 'consent_form', req.body, req.params.id);
+    if (!success) return res.status(400).json({ error: 'File data is required' });
+    if (success.error) return res.status(404).json(success);
+    res.json({ message: 'Consent form uploaded' });
   } catch (err) {
     console.error('PUT /api/schools/:id/consent error:', err.message);
     res.status(500).json({ error: 'Failed to upload consent form' });
@@ -241,15 +291,8 @@ app.put('/api/schools/:id/consent', async (req, res) => {
 // ── DELETE /api/schools/:id/consent — Remove consent form ──
 app.delete('/api/schools/:id/consent', async (req, res) => {
   try {
-    const result = await pool.query(
-      'UPDATE schools SET consent_form = NULL, consent_form_name = NULL WHERE id = $1 RETURNING id',
-      [req.params.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'School not found' });
-    }
-
+    const success = await removeFileFromDb('schools', 'consent_form', req.query.index, req.params.id);
+    if (success.error) return res.status(404).json(success);
     res.json({ message: 'Consent form removed' });
   } catch (err) {
     console.error('DELETE /api/schools/:id/consent error:', err.message);
@@ -260,21 +303,10 @@ app.delete('/api/schools/:id/consent', async (req, res) => {
 // ── PUT /api/schools/:id/attendance — Upload attendance sheet ──
 app.put('/api/schools/:id/attendance', async (req, res) => {
   try {
-    const { fileData, fileName } = req.body;
-    if (!fileData) {
-      return res.status(400).json({ error: 'File data is required' });
-    }
-
-    const result = await pool.query(
-      'UPDATE schools SET attendance_sheet = $1, attendance_sheet_name = $2 WHERE id = $3 RETURNING id',
-      [fileData, fileName, req.params.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'School not found' });
-    }
-
-    res.json({ message: 'Attendance sheet uploaded', fileName });
+    const success = await appendFilesToDb('schools', 'attendance_sheet', req.body, req.params.id);
+    if (!success) return res.status(400).json({ error: 'File data is required' });
+    if (success.error) return res.status(404).json(success);
+    res.json({ message: 'Attendance sheet uploaded' });
   } catch (err) {
     console.error('PUT /api/schools/:id/attendance error:', err.message);
     res.status(500).json({ error: 'Failed to upload attendance sheet' });
@@ -284,19 +316,72 @@ app.put('/api/schools/:id/attendance', async (req, res) => {
 // ── DELETE /api/schools/:id/attendance — Remove attendance sheet ──
 app.delete('/api/schools/:id/attendance', async (req, res) => {
   try {
-    const result = await pool.query(
-      'UPDATE schools SET attendance_sheet = NULL, attendance_sheet_name = NULL WHERE id = $1 RETURNING id',
-      [req.params.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'School not found' });
-    }
-
+    const success = await removeFileFromDb('schools', 'attendance_sheet', req.query.index, req.params.id);
+    if (success.error) return res.status(404).json(success);
     res.json({ message: 'Attendance sheet removed' });
   } catch (err) {
     console.error('DELETE /api/schools/:id/attendance error:', err.message);
     res.status(500).json({ error: 'Failed to remove attendance sheet' });
+  }
+});
+
+// ── PUT /api/schools/:id/photo — Upload group photo (Cover Photo) ──
+app.put('/api/schools/:id/photo', async (req, res) => {
+  try {
+    const success = await appendFilesToDb('schools', 'group_photo', req.body, req.params.id);
+    if (!success) return res.status(400).json({ error: 'File data is required' });
+    if (success.error) return res.status(404).json(success);
+    res.json({ message: 'Group photo uploaded' });
+  } catch (err) {
+    console.error('PUT /api/schools/:id/photo error:', err.message);
+    res.status(500).json({ error: 'Failed to upload group photo' });
+  }
+});
+
+// ── DELETE /api/schools/:id/photo — Remove group photo (Cover Photo) ──
+app.delete('/api/schools/:id/photo', async (req, res) => {
+  try {
+    const success = await removeFileFromDb('schools', 'group_photo', req.query.index, req.params.id);
+    if (success.error) return res.status(404).json(success);
+    res.json({ message: 'Group photo removed' });
+  } catch (err) {
+    console.error('DELETE /api/schools/:id/photo error:', err.message);
+    res.status(500).json({ error: 'Failed to remove group photo' });
+  }
+});
+
+// ── GET /api/schools/:id/photo-image — Serve group photo for cover ──
+app.get('/api/schools/:id/photo-image', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT group_photo FROM schools WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0 || !result.rows[0].group_photo) {
+      return res.status(404).json({ error: 'Photo not found' });
+    }
+    
+    let photos = parseFileColumn(result.rows[0].group_photo);
+    if (!photos || photos.length === 0) return res.status(404).json({ error: 'Photo not found' });
+    
+    let index = parseInt(req.query.index) || 0;
+    if (index < 0 || index >= photos.length) index = 0;
+    
+    const dataUrl = photos[index].data;
+    // Format: "data:image/jpeg;base64,/9j/4AAQ..."
+    const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ error: 'Invalid image format in database' });
+    }
+
+    const contentType = matches[1];
+    const imageBuffer = Buffer.from(matches[2], 'base64');
+
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Content-Length': imageBuffer.length
+    });
+    res.end(imageBuffer);
+  } catch (err) {
+    console.error('GET /api/schools/:id/photo-image error:', err.message);
+    res.status(500).json({ error: 'Failed to get group photo' });
   }
 });
 
@@ -342,6 +427,95 @@ app.delete('/api/batches/:id', async (req, res) => {
   } catch (err) {
     console.error('DELETE /api/batches/:id error:', err.message);
     res.status(500).json({ error: 'Failed to delete batch' });
+  }
+});
+
+// ── GET /api/transit/active — Get active transit logs ──
+app.get('/api/transit/active', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT t.*, s.name as school_name 
+      FROM transit_logs t
+      JOIN schools s ON t.school_id = s.id
+      ORDER BY t.updated_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/transit/active error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch active transit logs' });
+  }
+});
+
+// Helper for Haversine distance
+function calculateDistance(lat1, lon1, lat2 = 20.0422, lon2 = 74.4880) {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 100) / 100;
+}
+
+// ── POST /api/transit — Start or update transit tracking ──
+app.post('/api/transit', async (req, res) => {
+  try {
+    const { schoolId, tripName, mentorName, status, latitude, longitude } = req.body;
+    
+    if (!schoolId || !tripName || !mentorName || !status) {
+      return res.status(400).json({ error: 'School ID, trip name, mentor name, and status are required' });
+    }
+    
+    const lat = latitude ? parseFloat(latitude) : null;
+    const lon = longitude ? parseFloat(longitude) : null;
+    let distance = null;
+    if (lat !== null && lon !== null) {
+      distance = calculateDistance(lat, lon);
+    }
+    
+    // Check if active session already exists for this school and trip
+    const existing = await pool.query(
+      'SELECT id FROM transit_logs WHERE school_id = $1 AND trip_name = $2',
+      [schoolId, tripName]
+    );
+    
+    if (existing.rows.length > 0) {
+      // Update
+      const updateRes = await pool.query(
+        `UPDATE transit_logs 
+         SET status = $1, latitude = $2, longitude = $3, distance_km = $4, mentor_name = $5, updated_at = NOW() 
+         WHERE school_id = $6 AND trip_name = $7 RETURNING *`,
+        [status, lat, lon, distance, mentorName, schoolId, tripName]
+      );
+      res.json(updateRes.rows[0]);
+    } else {
+      // Insert
+      const insertRes = await pool.query(
+        `INSERT INTO transit_logs (school_id, trip_name, mentor_name, status, latitude, longitude, distance_km) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [schoolId, tripName, mentorName, status, lat, lon, distance]
+      );
+      res.status(201).json(insertRes.rows[0]);
+    }
+  } catch (err) {
+    console.error('POST /api/transit error:', err.message);
+    res.status(500).json({ error: 'Failed to update transit log' });
+  }
+});
+
+// ── DELETE /api/transit/:id — Delete transit tracking record ──
+app.delete('/api/transit/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM transit_logs WHERE id = $1 RETURNING id', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Transit log not found' });
+    }
+    res.json({ message: 'Transit tracking ended', id: parseInt(req.params.id) });
+  } catch (err) {
+    console.error('DELETE /api/transit/:id error:', err.message);
+    res.status(500).json({ error: 'Failed to end transit log' });
   }
 });
 

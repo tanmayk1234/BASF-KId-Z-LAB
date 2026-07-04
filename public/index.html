@@ -5,68 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="BASF Kids' Lab Dashboard — Admin panel for managing the Kids' Lab program at Kapse Foundation, Yeola" />
   <title>BASF Kids' Lab — Dashboard</title>
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
   <!-- ============================================================
-       SPLASH SCREEN
+       CINEMATIC SPLASH SCREEN (Apple Style)
        ============================================================ -->
   <div id="splash-screen">
-    <!-- Chemistry Bubbles (generated via JS) -->
-    
-    <!-- Molecule Decorations -->
-    <div class="molecule-decoration molecule-top-right">
-      <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="100" cy="100" r="8" fill="white"/>
-        <circle cx="40" cy="40" r="6" fill="white"/>
-        <circle cx="160" cy="40" r="6" fill="white"/>
-        <circle cx="40" cy="160" r="6" fill="white"/>
-        <circle cx="160" cy="160" r="6" fill="white"/>
-        <line x1="100" y1="100" x2="40" y2="40" stroke="white" stroke-width="2"/>
-        <line x1="100" y1="100" x2="160" y2="40" stroke="white" stroke-width="2"/>
-        <line x1="100" y1="100" x2="40" y2="160" stroke="white" stroke-width="2"/>
-        <line x1="100" y1="100" x2="160" y2="160" stroke="white" stroke-width="2"/>
-        <circle cx="70" cy="70" r="4" fill="white"/>
-        <circle cx="130" cy="70" r="4" fill="white"/>
-        <circle cx="70" cy="130" r="4" fill="white"/>
-        <circle cx="130" cy="130" r="4" fill="white"/>
-      </svg>
-    </div>
-    <div class="molecule-decoration molecule-bottom-left">
-      <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="100" cy="50" r="7" fill="white"/>
-        <circle cx="50" cy="150" r="7" fill="white"/>
-        <circle cx="150" cy="150" r="7" fill="white"/>
-        <line x1="100" y1="50" x2="50" y2="150" stroke="white" stroke-width="2"/>
-        <line x1="100" y1="50" x2="150" y2="150" stroke="white" stroke-width="2"/>
-        <line x1="50" y1="150" x2="150" y2="150" stroke="white" stroke-width="2"/>
-        <circle cx="75" cy="100" r="4" fill="white"/>
-        <circle cx="125" cy="100" r="4" fill="white"/>
-        <circle cx="100" cy="150" r="4" fill="white"/>
-      </svg>
-    </div>
-
-    <div class="splash-content">
-      <div class="splash-logos">
-        <div class="splash-logo basf-logo" id="splash-basf">
+    <div class="splash-light-sweep"></div>
+    <div class="splash-content" id="splash-content">
+      <div class="splash-logos-cinema">
+        <div class="splash-logo splash-logo-basf">
           <img src="assets/images.png" alt="BASF Logo" />
         </div>
-        <div class="splash-divider" id="splash-divider"></div>
-        <div class="splash-logo kapse-logo" id="splash-kapse">
+        <div class="splash-logo splash-logo-kapse">
           <img src="assets/kapse-foundation-1.png" alt="Kapse Foundation Logo" />
         </div>
-        <div class="splash-divider" id="splash-divider2"></div>
-        <div class="splash-logo mvp-logo" id="splash-mvp">
+        <div class="splash-logo splash-logo-mvp">
           <img src="assets/MVP-New-Logo-2024-1-scaled.jpg" alt="MVP Logo" />
         </div>
       </div>
-      <div class="splash-title" id="splash-title">
-        <h1>BASF <span>Kids' Lab</span></h1>
-        <p>We Create Chemistry</p>
-      </div>
-      <div class="splash-loading" id="splash-loading">
-        <div class="splash-loading-bar"></div>
+      <div class="splash-title-cinema">
+        <h1>BASF Kids' Lab</h1>
       </div>
     </div>
   </div>
@@ -81,9 +46,10 @@
           <div class="login-logos">
             <img src="assets/images.png" alt="BASF" />
             <img src="assets/kapse-foundation-1.png" alt="Kapse Foundation" />
+            <img src="assets/MVP-New-Logo-2024-1-scaled.jpg" alt="MVP Logo" />
           </div>
-          <h2>Admin Login</h2>
-          <p>BASF Kids' Lab Dashboard</p>
+          <h2>BASF Kids' Lab Login</h2>
+          <p>Admin or Mentor Dashboard</p>
         </div>
 
         <form id="login-form" autocomplete="off">
@@ -133,7 +99,7 @@
       </div>
 
       <div class="sidebar-nav">
-        <div class="nav-section-title">Main Menu</div>
+        <div class="nav-section-title" id="nav-section-main">Main Menu</div>
         <button class="nav-item active" data-page="overview" id="nav-overview">
           <span class="nav-icon">📊</span>
           Dashboard
@@ -143,8 +109,16 @@
           Schools
           <span class="nav-badge" id="school-count-badge">0</span>
         </button>
+        <button class="nav-item" data-page="tracking" id="nav-tracking">
+          <span class="nav-icon">🗺️</span>
+          Live Tracking
+        </button>
+        <button class="nav-item" data-page="mentor-console" id="nav-mentor-console">
+          <span class="nav-icon">🚌</span>
+          Bus Tracker
+        </button>
 
-        <div class="nav-section-title">Quick Actions</div>
+        <div class="nav-section-title" id="nav-section-actions">Quick Actions</div>
         <button class="nav-item" id="nav-add-school">
           <span class="nav-icon">➕</span>
           Add School
@@ -164,13 +138,16 @@
       <!-- Top Header Bar -->
       <header class="top-header">
         <div class="header-left">
+          <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open Menu">
+            ☰
+          </button>
           <h1 id="page-title">Dashboard</h1>
         </div>
         <div class="header-right">
           <div class="header-date" id="header-date">
             📅 <span></span>
           </div>
-          <div class="admin-badge">
+          <div class="admin-badge" id="user-role-badge">
             🛡️ Admin
           </div>
         </div>

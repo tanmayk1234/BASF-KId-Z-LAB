@@ -29,6 +29,8 @@ async function initDb() {
         consent_form_name VARCHAR(255),
         attendance_sheet TEXT,
         attendance_sheet_name VARCHAR(255),
+        group_photo TEXT,
+        group_photo_name VARCHAR(255),
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
@@ -40,6 +42,20 @@ async function initDb() {
         name VARCHAR(255) NOT NULL,
         start_time TIME NOT NULL,
         end_time TIME NOT NULL
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS transit_logs (
+        id SERIAL PRIMARY KEY,
+        school_id INTEGER REFERENCES schools(id) ON DELETE CASCADE,
+        trip_name VARCHAR(50) NOT NULL,
+        mentor_name VARCHAR(100) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        latitude DOUBLE PRECISION,
+        longitude DOUBLE PRECISION,
+        distance_km DOUBLE PRECISION,
+        updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
